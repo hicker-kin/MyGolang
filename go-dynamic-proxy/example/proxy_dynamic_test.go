@@ -80,3 +80,33 @@ func TestDynamicProxyWithCustomHandler(t *testing.T) {
 	})
 	t.Log("result 3----", result)
 }
+
+func TestDynamicProxyWithCustomHandler2(t *testing.T) {
+	// real subject
+	realTarget := &ServiceImpl{}
+
+	// create proxy
+	proxy := proxy.BuildDynamicProxyInstance(realTarget, before("aaa"), after("bbb"))
+
+	// call method
+	result := proxy.Call(realTarget.Method1, nil)
+	t.Log("result 1----", result)
+
+	result = proxy.Call(realTarget.Method3, []reflect.Value{
+		reflect.ValueOf("proxy message"),
+		reflect.ValueOf(map[string]string{"key": "val"}),
+	})
+	t.Log("result 3----", result)
+}
+
+func before(msg string) func() {
+	return func() {
+		fmt.Println("before ----------- ", msg)
+	}
+}
+
+func after(msg string) func() {
+	return func() {
+		fmt.Println("after ----------- ", msg)
+	}
+}

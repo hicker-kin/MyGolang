@@ -36,15 +36,7 @@ func (p *ServiceDynamicProxy) Call(methodFunc interface{}, args []reflect.Value)
 }
 
 // BuildServiceDynamicProxyInstance
-/**
- * @author qinzj
- * @description: create a proxy subject
- * @date 14:57 2023/4/4
- * @param:
- * target: proxy target
- * h: proxy behavior which include the method of target
- * @return: proxy
- **/
+// Deprecated
 func BuildServiceDynamicProxyInstance(target interface{},
 	h ProxyHandler) *ServiceDynamicProxy {
 	t := reflect.TypeOf(target)
@@ -65,6 +57,54 @@ func BuildServiceDynamicProxyInstance(target interface{},
 	proxyValue.Elem().FieldByName("target").Set(targetValue)
 	proxyValue.Elem().FieldByName("interceptor").Set(reflect.ValueOf(proxy.interceptor))
 	return proxyValue.Interface().(*ServiceDynamicProxy)*/
+}
+
+/**
+ * @author qinzj
+ * @description: create a proxy subject
+ * @date 14:57 2023/4/4
+ * @param:
+ * target: proxy target
+ * before,after: aop handler, it is nil if not needed
+ * @return: proxy
+ **/
+// BuildDynamicProxyInstance : new version proxy
+func BuildDynamicProxyInstance(target interface{},
+	before, after func()) *ServiceDynamicProxy {
+	t := reflect.TypeOf(target)
+	if t.Kind() != reflect.Ptr { // the target type is reflect.Ptr
+		panic("need a pointer type of interface struct")
+	}
+
+	h := wrapperHandler(before, after)
+	if h == nil {
+		h = defaultAOPHandler
+	}
+	return &ServiceDynamicProxy{
+		target:      target,
+		interceptor: h,
+	}
+}
+
+func wrapperHandler(before, after func()) ProxyHandler {
+	return func(
+		method string,
+		args []reflect.Value,
+		next func(in []reflect.Value) []reflect.Value) []reflect.Value {
+		// before handler
+		if before != nil {
+			before()
+		}
+
+		// execute task
+		result := next(args)
+
+		// after handler
+		if after != nil {
+			after()
+		}
+		return result
+	}
 }
 
 func defaultAOPHandler(
