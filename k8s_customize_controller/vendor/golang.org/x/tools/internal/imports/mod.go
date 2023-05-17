@@ -34,8 +34,7 @@ type ModuleResolver struct {
 	scannedRoots   map[gopathwalk.Root]bool
 
 	initialized   bool
-	mains         []*gocommand.ModuleJSON
-	mainByDir     map[string]*gocommand.ModuleJSON
+	main          *gocommand.ModuleJSON
 	modsByModPath []*gocommand.ModuleJSON // All modules, ordered by # of path components in module Path...
 	modsByDir     []*gocommand.ModuleJSON // ...or Dir.
 
@@ -70,29 +69,21 @@ func (r *ModuleResolver) init() error {
 		Logf:       r.env.Logf,
 		WorkingDir: r.env.WorkingDir,
 	}
-
-	vendorEnabled := false
-	var mainModVendor *gocommand.ModuleJSON
-
-	// Module vendor directories are ignored in workspace mode:
-	// https://go.googlesource.com/proposal/+/master/design/45713-workspace.md
-	if len(r.env.Env["GOWORK"]) == 0 {
-		vendorEnabled, mainModVendor, err = gocommand.VendorEnabled(context.TODO(), inv, r.env.GocmdRunner)
-		if err != nil {
-			return err
-		}
+	mainMod, vendorEnabled, err := gocommand.VendorEnabled(context.TODO(), inv, r.env.GocmdRunner)
+	if err != nil {
+		return err
 	}
 
-	if mainModVendor != nil && vendorEnabled {
+	if mainMod != nil && vendorEnabled {
 		// Vendor mode is on, so all the non-Main modules are irrelevant,
 		// and we need to search /vendor for everything.
-		r.mains = []*gocommand.ModuleJSON{mainModVendor}
+		r.main = mainMod
 		r.dummyVendorMod = &gocommand.ModuleJSON{
 			Path: "",
-			Dir:  filepath.Join(mainModVendor.Dir, "vendor"),
+			Dir:  filepath.Join(mainMod.Dir, "vendor"),
 		}
-		r.modsByModPath = []*gocommand.ModuleJSON{mainModVendor, r.dummyVendorMod}
-		r.modsByDir = []*gocommand.ModuleJSON{mainModVendor, r.dummyVendorMod}
+		r.modsByModPath = []*gocommand.ModuleJSON{mainMod, r.dummyVendorMod}
+		r.modsByDir = []*gocommand.ModuleJSON{mainMod, r.dummyVendorMod}
 	} else {
 		// Vendor mode is off, so run go list -m ... to find everything.
 		err := r.initAllMods()
@@ -129,22 +120,20 @@ func (r *ModuleResolver) init() error {
 	})
 
 	r.roots = []gopathwalk.Root{
-		{Path: filepath.Join(goenv["GOROOT"], "/src"), Type: gopathwalk.RootGOROOT},
+		{filepath.Join(goenv["GOROOT"], "/src"), gopathwalk.RootGOROOT},
 	}
-	r.mainByDir = make(map[string]*gocommand.ModuleJSON)
-	for _, main := range r.mains {
-		r.roots = append(r.roots, gopathwalk.Root{Path: main.Dir, Type: gopathwalk.RootCurrentModule})
-		r.mainByDir[main.Dir] = main
+	if r.main != nil {
+		r.roots = append(r.roots, gopathwalk.Root{r.main.Dir, gopathwalk.RootCurrentModule})
 	}
 	if vendorEnabled {
-		r.roots = append(r.roots, gopathwalk.Root{Path: r.dummyVendorMod.Dir, Type: gopathwalk.RootOther})
+		r.roots = append(r.roots, gopathwalk.Root{r.dummyVendorMod.Dir, gopathwalk.RootOther})
 	} else {
 		addDep := func(mod *gocommand.ModuleJSON) {
 			if mod.Replace == nil {
 				// This is redundant with the cache, but we'll skip it cheaply enough.
-				r.roots = append(r.roots, gopathwalk.Root{Path: mod.Dir, Type: gopathwalk.RootModuleCache})
+				r.roots = append(r.roots, gopathwalk.Root{mod.Dir, gopathwalk.RootModuleCache})
 			} else {
-				r.roots = append(r.roots, gopathwalk.Root{Path: mod.Dir, Type: gopathwalk.RootOther})
+				r.roots = append(r.roots, gopathwalk.Root{mod.Dir, gopathwalk.RootOther})
 			}
 		}
 		// Walk dependent modules before scanning the full mod cache, direct deps first.
@@ -158,7 +147,7 @@ func (r *ModuleResolver) init() error {
 				addDep(mod)
 			}
 		}
-		r.roots = append(r.roots, gopathwalk.Root{Path: r.moduleCacheDir, Type: gopathwalk.RootModuleCache})
+		r.roots = append(r.roots, gopathwalk.Root{r.moduleCacheDir, gopathwalk.RootModuleCache})
 	}
 
 	r.scannedRoots = map[gopathwalk.Root]bool{}
@@ -200,7 +189,7 @@ func (r *ModuleResolver) initAllMods() error {
 		r.modsByModPath = append(r.modsByModPath, mod)
 		r.modsByDir = append(r.modsByDir, mod)
 		if mod.Main {
-			r.mains = append(r.mains, mod)
+			r.main = mod
 		}
 	}
 	return nil
@@ -466,16 +455,6 @@ func (r *ModuleResolver) scan(ctx context.Context, callback *scanCallback) error
 	// We assume cached directories are fully cached, including all their
 	// children, and have not changed. We can skip them.
 	skip := func(root gopathwalk.Root, dir string) bool {
-		if r.env.SkipPathInScan != nil && root.Type == gopathwalk.RootCurrentModule {
-			if root.Path == dir {
-				return false
-			}
-
-			if r.env.SkipPathInScan(filepath.Clean(dir)) {
-				return true
-			}
-		}
-
 		info, ok := r.cacheLoad(dir)
 		if !ok {
 			return false
@@ -630,7 +609,7 @@ func (r *ModuleResolver) scanDirForPackage(root gopathwalk.Root, dir string) dir
 	}
 	switch root.Type {
 	case gopathwalk.RootCurrentModule:
-		importPath = path.Join(r.mainByDir[root.Path].Path, filepath.ToSlash(subdir))
+		importPath = path.Join(r.main.Path, filepath.ToSlash(subdir))
 	case gopathwalk.RootModuleCache:
 		matches := modCacheRegexp.FindStringSubmatch(subdir)
 		if len(matches) == 0 {

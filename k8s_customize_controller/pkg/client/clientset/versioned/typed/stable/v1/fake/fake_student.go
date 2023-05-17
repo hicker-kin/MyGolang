@@ -19,13 +19,11 @@ package fake
 
 import (
 	"context"
-	json "encoding/json"
-	"fmt"
-	v1 "k8s_customize_controller/pkg/apis/stable/v1"
-	stablev1 "k8s_customize_controller/pkg/client/applyconfiguration/stable/v1"
+	stablev1 "k8s_customize_controller/pkg/apis/stable/v1"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -37,25 +35,25 @@ type FakeStudents struct {
 	ns   string
 }
 
-var studentsResource = v1.SchemeGroupVersion.WithResource("students")
+var studentsResource = schema.GroupVersionResource{Group: "stable.example.com", Version: "v1", Resource: "students"}
 
-var studentsKind = v1.SchemeGroupVersion.WithKind("Student")
+var studentsKind = schema.GroupVersionKind{Group: "stable.example.com", Version: "v1", Kind: "Student"}
 
 // Get takes name of the student, and returns the corresponding student object, and an error if there is any.
-func (c *FakeStudents) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.Student, err error) {
+func (c *FakeStudents) Get(ctx context.Context, name string, options v1.GetOptions) (result *stablev1.Student, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(studentsResource, c.ns, name), &v1.Student{})
+		Invokes(testing.NewGetAction(studentsResource, c.ns, name), &stablev1.Student{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1.Student), err
+	return obj.(*stablev1.Student), err
 }
 
 // List takes label and field selectors, and returns the list of Students that match those selectors.
-func (c *FakeStudents) List(ctx context.Context, opts metav1.ListOptions) (result *v1.StudentList, err error) {
+func (c *FakeStudents) List(ctx context.Context, opts v1.ListOptions) (result *stablev1.StudentList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(studentsResource, studentsKind, c.ns, opts), &v1.StudentList{})
+		Invokes(testing.NewListAction(studentsResource, studentsKind, c.ns, opts), &stablev1.StudentList{})
 
 	if obj == nil {
 		return nil, err
@@ -65,8 +63,8 @@ func (c *FakeStudents) List(ctx context.Context, opts metav1.ListOptions) (resul
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v1.StudentList{ListMeta: obj.(*v1.StudentList).ListMeta}
-	for _, item := range obj.(*v1.StudentList).Items {
+	list := &stablev1.StudentList{ListMeta: obj.(*stablev1.StudentList).ListMeta}
+	for _, item := range obj.(*stablev1.StudentList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -75,79 +73,57 @@ func (c *FakeStudents) List(ctx context.Context, opts metav1.ListOptions) (resul
 }
 
 // Watch returns a watch.Interface that watches the requested students.
-func (c *FakeStudents) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+func (c *FakeStudents) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(studentsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a student and creates it.  Returns the server's representation of the student, and an error, if there is any.
-func (c *FakeStudents) Create(ctx context.Context, student *v1.Student, opts metav1.CreateOptions) (result *v1.Student, err error) {
+func (c *FakeStudents) Create(ctx context.Context, student *stablev1.Student, opts v1.CreateOptions) (result *stablev1.Student, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(studentsResource, c.ns, student), &v1.Student{})
+		Invokes(testing.NewCreateAction(studentsResource, c.ns, student), &stablev1.Student{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1.Student), err
+	return obj.(*stablev1.Student), err
 }
 
 // Update takes the representation of a student and updates it. Returns the server's representation of the student, and an error, if there is any.
-func (c *FakeStudents) Update(ctx context.Context, student *v1.Student, opts metav1.UpdateOptions) (result *v1.Student, err error) {
+func (c *FakeStudents) Update(ctx context.Context, student *stablev1.Student, opts v1.UpdateOptions) (result *stablev1.Student, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(studentsResource, c.ns, student), &v1.Student{})
+		Invokes(testing.NewUpdateAction(studentsResource, c.ns, student), &stablev1.Student{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1.Student), err
+	return obj.(*stablev1.Student), err
 }
 
 // Delete takes name of the student and deletes it. Returns an error if one occurs.
-func (c *FakeStudents) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+func (c *FakeStudents) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(studentsResource, c.ns, name, opts), &v1.Student{})
+		Invokes(testing.NewDeleteAction(studentsResource, c.ns, name), &stablev1.Student{})
 
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeStudents) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+func (c *FakeStudents) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	action := testing.NewDeleteCollectionAction(studentsResource, c.ns, listOpts)
 
-	_, err := c.Fake.Invokes(action, &v1.StudentList{})
+	_, err := c.Fake.Invokes(action, &stablev1.StudentList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched student.
-func (c *FakeStudents) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Student, err error) {
+func (c *FakeStudents) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *stablev1.Student, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(studentsResource, c.ns, name, pt, data, subresources...), &v1.Student{})
+		Invokes(testing.NewPatchSubresourceAction(studentsResource, c.ns, name, pt, data, subresources...), &stablev1.Student{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1.Student), err
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied student.
-func (c *FakeStudents) Apply(ctx context.Context, student *stablev1.StudentApplyConfiguration, opts metav1.ApplyOptions) (result *v1.Student, err error) {
-	if student == nil {
-		return nil, fmt.Errorf("student provided to Apply must not be nil")
-	}
-	data, err := json.Marshal(student)
-	if err != nil {
-		return nil, err
-	}
-	name := student.Name
-	if name == nil {
-		return nil, fmt.Errorf("student.Name must be provided to Apply")
-	}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(studentsResource, c.ns, *name, types.ApplyPatchType, data), &v1.Student{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1.Student), err
+	return obj.(*stablev1.Student), err
 }

@@ -26,10 +26,8 @@ import (
 )
 
 // StudentLister helps list Students.
-// All objects returned here must be treated as read-only.
 type StudentLister interface {
 	// List lists all Students in the indexer.
-	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.Student, err error)
 	// Students returns an object that can list and get Students.
 	Students(namespace string) StudentNamespaceLister
@@ -60,13 +58,10 @@ func (s *studentLister) Students(namespace string) StudentNamespaceLister {
 }
 
 // StudentNamespaceLister helps list and get Students.
-// All objects returned here must be treated as read-only.
 type StudentNamespaceLister interface {
 	// List lists all Students in the indexer for a given namespace.
-	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.Student, err error)
 	// Get retrieves the Student from the indexer for a given namespace and name.
-	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1.Student, error)
 	StudentNamespaceListerExpansion
 }
