@@ -1,0 +1,27 @@
+apiVersion: app.example.com/v1
+kind: App
+metadata:
+  labels:
+    app.kubernetes.io/name: app
+    app.kubernetes.io/instance: app-sample
+    app.kubernetes.io/created-by: app
+  name: app-sample
+spec:
+  replicas: 2
+  image: nginx:1.16.1
+  ports:
+    - targetPort: 80
+      port: 8080
+  envs:
+    - name: DEMO
+      value: app
+    - name: GOPATH
+      value: gopath
+  resources:
+    limits:
+      cpu: 500m
+      memory: 500Mi
+    requests:
+      cpu: 100m
+      memory: 100Mi
+
