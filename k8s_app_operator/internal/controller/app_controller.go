@@ -18,7 +18,7 @@ package controller
 
 import (
 	"app.deploy/resource/deployment"
-	"app.deploy/resource/resource/service"
+	"app.deploy/resource/service"
 	"context"
 	"encoding/json"
 	appsv1 "k8s.io/api/apps/v1"
